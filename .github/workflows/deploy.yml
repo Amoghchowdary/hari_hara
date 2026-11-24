@@ -1,0 +1,55 @@
+name: Deploy Harihara Website (Apps Script backend) to GitHub Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve GitHub Pages base path
+        shell: bash
+        env:
+          OVERRIDE_BASE: ${{ vars.SITE_BASE_PATH }}
+        run: |
+          if [[ -n "$OVERRIDE_BASE" ]]; then
+            echo "SITE_BASE_PATH=$OVERRIDE_BASE" >> "$GITHUB_ENV"
+          elif [[ "${GITHUB_REPOSITORY#*/}" == *.github.io ]]; then
+            echo 'SITE_BASE_PATH=/' >> "$GITHUB_ENV"
+          else
+            echo "SITE_BASE_PATH=/${GITHUB_REPOSITORY#*/}/" >> "$GITHUB_ENV"
+          fi
+      - name: Install packages
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+          fi
+      - name: Check static release
+        run: npm run verify
+      - name: Set up Pages
+        uses: actions/configure-pages@v5
+      - name: Upload dist output
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
