@@ -1,45 +1,25 @@
-name: Deploy Harihara Website (Apps Script backend) to GitHub Pages
-
+name: Deploy Harihara V9 to GitHub Pages
 on:
   push:
     branches: [main]
   workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 concurrency:
-  group: github-pages
-  cancel-in-progress: true
-
+  group: harihara-pages-production
+  cancel-in-progress: false
 jobs:
   build:
-    name: Build and upload Pages artifact
+    name: Verify and upload production website
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
-      - name: Checkout source
+      - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-
-      - name: Resolve GitHub Pages base path
-        shell: bash
-        env:
-          OVERRIDE_BASE: ${{ vars.SITE_BASE_PATH }}
-        run: |
-          if [[ -n "$OVERRIDE_BASE" ]]; then
-            echo "SITE_BASE_PATH=$OVERRIDE_BASE" >> "$GITHUB_ENV"
-          elif [[ "${GITHUB_REPOSITORY#*/}" == *.github.io ]]; then
-            echo 'SITE_BASE_PATH=/' >> "$GITHUB_ENV"
-          else
-            echo "SITE_BASE_PATH=/${GITHUB_REPOSITORY#*/}/" >> "$GITHUB_ENV"
-          fi
-
       - name: Install packages
         run: |
           if [ -f package-lock.json ]; then
@@ -47,33 +27,33 @@ jobs:
           else
             npm install --no-audit --no-fund
           fi
-
-      - name: Check static release
+      - name: Verify and build root-based website
         run: npm run verify
-
-      - name: Confirm built site exists
-        shell: bash
+      - name: Block high-severity production dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Check compiled favicon, assets and custom domain
         run: |
           test -s dist/index.html
-          echo "Output files: $(find dist -type f | wc -l)"
-
-      - name: Set up Pages
+          test -s dist/favicon.ico
+          test "$(cat dist/CNAME)" = "www.hariharafabrictionsandconstructions.in"
+      - name: Configure Pages
         uses: actions/configure-pages@v5
-
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          name: github-pages
           path: ./dist
-
   deploy:
-    name: Publish Pages artifact
+    name: Publish approved artifact
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
+      - name: Deploy website
         uses: actions/deploy-pages@v4
+        id: deployment

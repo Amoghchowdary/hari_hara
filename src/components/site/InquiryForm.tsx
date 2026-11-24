@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm, type Resolver, type FieldErrors } from "react-hook-form";
+import { validateEnquiryForm, type EnquiryFormValues } from "@/lib/enquiry-validation";
 import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { waLink } from "@/lib/brand";
 import { submitEnquiryToAppsScript } from "@/lib/backend";
@@ -16,21 +15,20 @@ import {
 } from "@/components/ui/select";
 import { SERVICES } from "@/lib/services";
 
-const indianPhone = /^(\+?91[\s-]?)?[6-9]\d{9}$/;
+type FormValues = EnquiryFormValues;
 
-const schema = z.object({
-  full_name: z.string().trim().min(2, "Name is required").max(100),
-  phone: z.string().trim().regex(indianPhone, "Enter a valid Indian mobile number"),
-  whatsapp: z.string().trim().regex(indianPhone, "Enter a valid WhatsApp number").or(z.literal("")).optional(),
-  email: z.string().trim().email("Invalid email").max(255).or(z.literal("")).optional(),
-  location: z.string().trim().max(200).optional(),
-  service_interest: z.string().min(1, "Please choose a service"),
-  budget_range: z.string().optional(),
-  preferred_contact_time: z.string().optional(),
-  project_description: z.string().trim().min(5, "Tell us a little about your project").max(5000),
-});
-
-type FormValues = z.infer<typeof schema>;
+// React Hook Form supports a custom resolver; no external Zod runtime is needed.
+const enquiryResolver: Resolver<FormValues> = async (rawValues) => {
+  const { values, errors: validationErrors } = validateEnquiryForm(rawValues);
+  const errors = Object.fromEntries(
+    Object.entries(validationErrors).map(([name, message]) => [
+      name, { type: "validate", message },
+    ]),
+  ) as FieldErrors<FormValues>;
+  return Object.keys(errors).length
+    ? { values: {}, errors }
+    : { values, errors: {} };
+};
 
 const BUDGET_RANGES = [
   "Under ₹5 Lakh",
@@ -81,7 +79,7 @@ export function InquiryForm({ defaultService }: InquiryFormProps) {
   const [website, setWebsite] = useState(""); // Hidden bot-trap field
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: enquiryResolver,
     defaultValues: {
       full_name: "",
       phone: "",

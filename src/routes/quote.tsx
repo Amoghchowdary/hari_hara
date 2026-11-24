@@ -1,15 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { InquiryForm } from "@/components/site/InquiryForm";
 import { SERVICES } from "@/lib/services";
 
-const searchSchema = z.object({
-  service: z.string().optional(),
+// TanStack Router supports native search validation; no Zod dependency needed.
+const validateSearch = (search: Record<string, unknown>) => ({
+  service: typeof search.service === "string" && search.service.length <= 160
+    ? search.service
+    : undefined,
 });
 
 export const Route = createFileRoute("/quote")({
-  validateSearch: searchSchema,
+  validateSearch,
   head: () => ({
     meta: [
       { title: "Request a Quote | Harihara Constructions & Fabrication" },

@@ -1,3 +1,38 @@
+> **V9 security release:** See [README_V9_DEPLOY.md](README_V9_DEPLOY.md) and [CHANGELOG_V9.md](CHANGELOG_V9.md).
+
+> **V8 CUSTOM DOMAIN:** Before deploying, read [README_V8_DEPLOY.md](README_V8_DEPLOY.md). V8 targets `https://www.hariharafabrictionsandconstructions.in/` with Vite `base: "/"`; the Apps Script origin allowlist must be updated separately.
+
+# Harihara Constructions — V7 (GitHub Pages artifact workflow fix)
+
+**V7 affects deployment automation only.** The website design, fonts, images, favicon and Apps Script endpoint are unchanged.
+
+The old single-job GitHub Actions workflow could fail at `actions/deploy-pages` with `No artifacts named "github-pages" were found`, even after a successful upload, because artifact discovery sometimes races the upload. This workflow uses two jobs: `build` uploads; the dependent `deploy` job publishes. See GitHub issue https://github.com/actions/deploy-pages/issues/451.
+
+## Updating your existing deployment repository
+
+```powershell
+$source = "C:\Users\MYPC\Desktop\Hari Hara\Harihara_Constructions_GITHUB_V7"
+$repo = "C:\Users\MYPC\Desktop\Hari Hara\Deployment Folder\hari_hara"
+if (!(Test-Path "$source\.github\workflows\deploy.yml")) { throw "Missing V7 workflow" }
+if (!(Test-Path "$repo\.git")) { throw "Missing existing Git clone" }
+cd "$repo"
+git pull --ff-only origin main
+robocopy "$source" "$repo" /E /R:2 /W:2 /NP /XD node_modules dist .git apps-script /XF ".env" ".env.*" "*.log"
+if ($LASTEXITCODE -ge 8) { throw "Robocopy failed" }
+git add -A
+git commit -m "V7 - Separate Pages build and deploy jobs"
+git push origin main
+```
+
+If the V7 workflow has already been updated directly in GitHub, **run `git pull --ff-only origin main`** in your existing clone rather than committing the same change twice.
+
+GitHub repository: https://github.com/Amoghchowdary/hari_hara
+Expected GitHub Pages URL: https://amoghchowdary.github.io/hari_hara/
+
+The private Google Apps Script backend does not belong in public Git and should remain deployed separately. Test a real enquiry submission after the website is live. Review the GitHub Actions run and Pages settings to confirm publishing succeeded.
+
+---
+
 # Harihara Constructions — V6 (GitHub Pages frontend + separately deployed Apps Script)
 
 V6 fixes a deploy-blocking mistake in V5: `npm run verify` incorrectly demanded `apps-script/Code.gs` even when that folder was deliberately excluded from the public frontend Git clone. **The website and backend integrations have not been redesigned.**
