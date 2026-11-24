@@ -1,28 +1,32 @@
 name: Deploy Harihara Website (Apps Script backend) to GitHub Pages
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
 permissions:
   contents: read
   pages: write
   id-token: write
+
 concurrency:
   group: github-pages
   cancel-in-progress: true
+
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
+    name: Build and upload Pages artifact
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+
       - name: Resolve GitHub Pages base path
         shell: bash
         env:
@@ -35,6 +39,7 @@ jobs:
           else
             echo "SITE_BASE_PATH=/${GITHUB_REPOSITORY#*/}/" >> "$GITHUB_ENV"
           fi
+
       - name: Install packages
         run: |
           if [ -f package-lock.json ]; then
@@ -42,14 +47,33 @@ jobs:
           else
             npm install --no-audit --no-fund
           fi
+
       - name: Check static release
         run: npm run verify
+
+      - name: Confirm built site exists
+        shell: bash
+        run: |
+          test -s dist/index.html
+          echo "Output files: $(find dist -type f | wc -l)"
+
       - name: Set up Pages
         uses: actions/configure-pages@v5
-      - name: Upload dist output
+
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './dist'
-      - name: Deploy
+          name: github-pages
+          path: ./dist
+
+  deploy:
+    name: Publish Pages artifact
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
